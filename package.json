@@ -1,0 +1,16 @@
+{
+  "name": "bigdata",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "migrate": "node --env-file=.env db.js migrate",
+    "test": "node --env-file=.env db.js test",
+    "seed": "node --env-file=.env seed.js"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
+}
