@@ -1,9 +1,9 @@
 const crypto = require("crypto");
 const assert = require("assert");
 
-const MAX = 50; 
+const MAX = 2000;
 
-const N = { users: 20, products: 5, orders: 25, promos: 10 };
+const N = { users: 50, products: 30, orders: 1200, promos: 10 };
 
 let seed = Number(process.env.SEED || 42);
 const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -23,7 +23,7 @@ const d = ms => (ms == null ? null : new Date(ms));
 const FIRST = ["Camille","Lucas","Léa","Hugo","Chloé","Louis","Emma","Nathan","Manon","Théo","Inès","Jules","Sarah","Adam","Zoé","Gabriel","Jade","Raphaël","Louise","Arthur","Alice","Paul","Lina","Tom","Rose","Noah","Anna","Ethan","Mila","Sacha"];
 const LAST = ["Martin","Bernard","Dubois","Thomas","Robert","Richard","Petit","Durand","Leroy","Moreau","Simon","Laurent","Lefebvre","Michel","Garcia","David","Bertrand","Roux","Vincent","Fournier","Morel","Girard","André","Mercier","Dupont","Lambert","Bonnet","François","Martinez","Legrand"];
 const STREETS = ["rue de la République","avenue Jean Jaurès","rue Victor Hugo","boulevard Gambetta","rue Pasteur","place de la Mairie","rue du Moulin","avenue de la Gare","rue des Écoles","quai des Brumes"];
-const CITIES = [["Paris","75011","France","EUR"],["Lyon","69003","France","EUR"],["Marseille","13001","France","EUR"],["Toulouse","31000","France","EUR"],["Bordeaux","33000","France","EUR"],["Lille","59000","France","EUR"],["Nantes","44000","France","EUR"],["Rennes","35000","France","EUR"],["Bruxelles","1000","Belgique","EUR"],["London","SW1A 1AA","United Kingdom","GBP"]];
+const CITIES = [["Paris","75011","France","EUR"],["Lyon","69003","France","EUR"],["Marseille","13001","France","EUR"],["Toulouse","31000","France","EUR"],["Bordeaux","33000","France","EUR"],["Lille","59000","France","EUR"],["Nantes","44000","France","EUR"],["Rennes","35000","France","EUR"],["Nice","06000","France","EUR"],["Strasbourg","67000","France","EUR"],["Montpellier","34000","France","EUR"],["Grenoble","38000","France","EUR"],["Dijon","21000","France","EUR"],["Angers","49000","France","EUR"],["Reims","51100","France","EUR"],["Bruxelles","1000","Belgique","EUR"],["Liège","4000","Belgique","EUR"],["Anvers","2000","Belgique","EUR"],["London","SW1A 1AA","United Kingdom","GBP"],["Manchester","M1 1AE","United Kingdom","GBP"],["Edinburgh","EH1 1YZ","United Kingdom","GBP"],["Saint-Étienne","42000","France","EUR"],["Le Havre","76600","France","EUR"],["Toulon","83000","France","EUR"],["Clermont-Ferrand","63000","France","EUR"],["Tours","37000","France","EUR"],["Limoges","87000","France","EUR"],["Gand","9000","Belgique","EUR"],["Charleroi","6000","Belgique","EUR"],["Birmingham","B1 1AA","United Kingdom","GBP"],["Glasgow","G1 1AA","United Kingdom","GBP"],["Bristol","BS1 1AA","United Kingdom","GBP"]];
 const CURRENCIES = { EUR: ["Euro (EUR)", 1], GBP: ["Livre sterling (GBP)", 0.85] };
 const BRANDS = ["Nike","Adidas","Puma","Levi's","Lacoste","Le Coq Sportif","Petit Bateau","Armor-Lux","Veja","New Balance","Carhartt","Patagonia","The North Face","Kickers","Saint James","Converse","Vans","Asics","Eastpak","Aigle"];
 const CATS = {
@@ -67,7 +67,7 @@ function generate() {
 
     const sizes = SIZES[sizeType].length > 1 ? sample(SIZES[sizeType], int(2, SIZES[sizeType].length)) : SIZES[sizeType];
     for (const [color, size] of sample(sizes.flatMap(sz => COLORS.map(c => [c, sz])), int(1, 2))) {
-      const v = { id: uuid(), product: p, prices: {} };
+      const v = { id: uuid(), product: p, prices: {}, unsold: chance(0.25) }; // unsold : jamais commandée (défi 4)
       add("Variant", [v.id, p.id, "VAR-" + pad(variants.length + 1, 7), size, color, chance(0.1) ? 0 : int(1, 150)]);
       for (const [code, c] of Object.entries(cur)) {
         v.prices[code] = hist.map(h => ({ at: h.at, value: Math.round(h.eur * c.rate) }));
@@ -78,7 +78,7 @@ function generate() {
     products.push(p);
   }
   const priceAt = (v, code, at) => v.prices[code].filter(h => h.at <= at).at(-1).value;
-  const variantAvailableAt = at => { for (let k = 0; k < 20; k++) { const v = pick(variants); if (v.product.launch <= at) return v; } return null; };
+  const variantAvailableAt = at => { for (let k = 0; k < 20; k++) { const v = pick(variants); if (v.product.launch <= at && !v.unsold) return v; } return null; };
 
   const users = [], defaults = [];
   const pwd = "scrypt$seed$" + crypto.scryptSync("password123", "seed", 32).toString("hex");
@@ -88,7 +88,7 @@ function generate() {
     const u = { id: uuid(), first, last, created, mail: `${first}.${last}${i}@example.com`.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9.@]/g, ""), phone: "+336" + pad(i, 8), addrs: [] };
     add("User", [u.id, first, u.mail, pwd, u.phone, d(created), chance(0.3) ? d(between(created, NOW)) : null, chance(0.92), null]);
     for (let k = int(1, 2); k > 0; k--) {
-      const [city, zip, country, code] = k === 1 && chance(0.85) ? pick(CITIES.slice(0, 8)) : pick(CITIES);
+      const [city, zip, country, code] = k === 1 && chance(0.85) ? pick(CITIES.filter(c => c[2] === "France")) : pick(CITIES);
       const a = { id: uuid(), street: `${int(1, 120)} ${pick(STREETS)}`, zip, city, country, code };
       add("Address", [a.id, u.id, a.street, zip, country, city]);
       u.addrs.push(a);
@@ -131,15 +131,21 @@ function generate() {
     (p.max == null || p.used < p.max) && (!p.limited || (uid && !p.usedBy.has(uid))) &&
     (p.scope === "order" || items.some(v => p.products.has(v.product.id) || [...p.cats].some(c => v.product.catSet.has(c))));
 
+  const sellable = variants.filter(v => !v.unsold);
+  const BUNDLES = Array.from({ length: 3 }, () => sample(sellable, 2));
   const orders = [];
   for (let i = 0; i < N.orders; i++) {
     const u = chance(0.9) ? pick(users) : null;
     const at = between(u ? u.created : START, NOW);
-    const a = u ? pick(u.addrs) : (([city, zip, country, code]) => ({ street: `${int(1, 120)} ${pick(STREETS)}`, zip, city, country, code }))(pick(CITIES));
+    // ville de livraison tournante : chaque ville reçoit orders / CITIES.length commandes (40 avec 1200 et 30)
+    const a = (([city, zip, country, code]) => ({ street: `${int(1, 120)} ${pick(STREETS)}`, zip, city, country, code }))(CITIES[i % CITIES.length]);
     const name = u ? [u.first, u.last] : [pick(FIRST), pick(LAST)];
     const items = [];
-    for (let k = int(1, 2); k > 0; k--) { const v = variantAvailableAt(at); if (v && !items.includes(v)) items.push(v); }
-    if (!items.length) continue;
+    // défi 20 : 15 % des commandes contiennent une des paires "habituelles" (BUNDLES), les autres ont 1 à 3 articles
+    if (chance(0.15)) items.push(...pick(BUNDLES).filter(v => v.product.launch <= at));
+    for (let k = chance(0.4) ? int(1, 2) : 0; k > 0; k--) { const v = variantAvailableAt(at); if (v && !items.includes(v)) items.push(v); }
+    if (!items.length) { const v = variantAvailableAt(at); if (v) items.push(v); }
+    if (!items.length) { i--; continue; } // on retente pour garder le compte par ville
 
     let promo = null;
     if (chance(0.3)) {
